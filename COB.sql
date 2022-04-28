@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS  COMPETICAO (
   Data_Inscricao date NOT NULL,
   Data_Fim date,
   Metrica_Competicao char(1) NOT NULL,
+  Tentativas_Competicao int NOT NULL,
   PRIMARY KEY (Id_Competicao));
 
 -- -----------------------------------------------------
@@ -26,7 +27,7 @@ CREATE TABLE IF NOT EXISTS ATLETA (
   Id_Atleta INT NOT NULL AUTO_INCREMENT,
   Nome_Atleta VARCHAR(255) NOT NULL,
   Id_Competicao INT NOT NULL,
-  Resultado_Atleta Float NOT NULL,
+  Resultado_Atleta DECIMAL(6,3) NOT NULL,
   PRIMARY KEY (Id_Atleta),
   CONSTRAINT fk_Competicao_Atleta
     FOREIGN KEY (Id_Competicao)
