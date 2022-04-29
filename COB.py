@@ -134,24 +134,44 @@ def ranking(Nome_Competicao):
         if(request.method == 'GET'):
             cursor              = conn.cursor(dictionary=True)
             cursor.execute("""SELECT Id_Competicao, 
-                                     Data_Fim 
+                                     Data_Fim,
+                                     Metrica_Competicao
                                 FROM Competicao 
-                               WHERE Data_Fim IS NOT NULL 
-                                 AND Nome_Competicao = '{0}'""".format(Nome_Competicao))
+                               WHERE Nome_Competicao = '{0}'""".format(Nome_Competicao))
             valid_Competicao = cursor.fetchone()
             if bool(valid_Competicao):
-
-                cursor  = conn.cursor(dictionary=True)
-                cursor.execute("""SELECT Id_Atleta,
-                                         Nome_Atleta,
-                                         Id_Competicao,
-                                         Resultado_Atleta
-                                    FROM Atleta 
-                                   WHERE Id_Competicao = '{0}'""".format(valid_Competicao['Id_Competicao']))
-                results = cursor.fetchall()
-                return(jsonify(results))
-
-            else: return {"code": "905", "name": "Err", "description": "Competição não existe ou Data Fim ainda não registrada no banco de dados."}
+                if valid_Competicao['Metrica_Competicao'] == 'm':
+                    cursor  = conn.cursor(dictionary=True)
+                    cursor.execute("""   SELECT A.Id_Atleta, A.Nome_Atleta, MAX(A.Resultado_Atleta) AS Melhor_Marca, 
+                                                B.Nome_Competicao, 
+                                                B.Data_Fim, 
+                                                B.Metrica_Competicao,
+                                                ROW_NUMBER() OVER (ORDER BY MAX(A.Resultado_Atleta) DESC) Posicao
+                                            FROM Atleta A
+                                            INNER JOIN Competicao B
+                                                ON A.Id_Competicao = B.Id_Competicao
+                                            WHERE A.Id_Competicao = '{0}'
+                                            GROUP BY A.Nome_Atleta
+                                            ORDER BY Posicao""".format(valid_Competicao['Id_Competicao'])) 
+                    results = cursor.fetchall()
+                    return(jsonify(results))
+                elif valid_Competicao['Metrica_Competicao'] == 's':
+                    cursor  = conn.cursor(dictionary=True)
+                    cursor.execute("""   SELECT A.Id_Atleta, A.Nome_Atleta, MIN(A.Resultado_Atleta) AS Melhor_Marca, 
+                                                B.Nome_Competicao, 
+                                                B.Data_Fim, 
+                                                B.Metrica_Competicao,
+                                                ROW_NUMBER() OVER (ORDER BY MIN(A.Resultado_Atleta)) Posicao
+                                           FROM Atleta A
+                                          INNER JOIN Competicao B
+                                            ON A.Id_Competicao = B.Id_Competicao
+                                         WHERE A.Id_Competicao = '{0}'
+                                         GROUP BY A.Nome_Atleta
+                                         ORDER BY Posicao""".format(valid_Competicao['Id_Competicao'])) 
+                    results = cursor.fetchall()
+                    return(jsonify(results))
+                else: return {"code": "907", "name": "Err", "description": "Métrica da competição não existe para ranking."}
+            else: return {"code": "905", "name": "Err", "description": "Competição não existe no banco de dados."}
 
 @app.route('/api/v1', methods=["GET"])
 def info_view():
