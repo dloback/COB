@@ -10,7 +10,15 @@ api = Api(app)
 
 @app.route("/")
 def home():
-    return "COB/api/v1"
+    output = {
+        'competicao': 'GET /competicao',
+        'competicao inserir': 'POST /competicao',
+        'competicao fim': 'PUT /competicao',
+        'atleta': 'GET /atleta',
+        'atleta': 'POST /atleta',
+        'ranking': 'GET /atleta/<Nome_Competicao>'
+    }
+    return jsonify(output)
 
 @app.route('/competicao', methods = ['GET', 'POST', 'PUT'])
 def competicao():
@@ -18,8 +26,7 @@ def competicao():
         if(request.method == 'GET'):
             cursor  = conn.cursor(dictionary=True)
             cursor.execute(""" SELECT Id_Competicao, 
-                                      Nome_Competicao, 
-                                      Data_Inscricao, 
+                                      Nome_Competicao,
                                       Data_Fim, 
                                       Metrica_Competicao, 
                                       Tentativas_Competicao 
@@ -30,8 +37,7 @@ def competicao():
 
         if(request.method == 'POST'):
             Nome_Competicao         = str(request.json['Nome_Competicao'])
-            Data_Inscricao          = str(request.json['Data_Inscricao'])
-            Metrica_Competicao      = str(request.json['Metrica_Competicao'])
+            Metrica_Competicao      = str(request.json['Metrica_Competicao']).lower()
             Tentativas_Competicao   = str(request.json['Tentativas_Competicao'])
             cursor                  = conn.cursor(dictionary=True)
 
@@ -41,15 +47,15 @@ def competicao():
             valid = cursor.fetchone()
 
             if not bool(valid):
-                cursor.execute("""  INSERT 
-                                    INTO Competicao (Nome_Competicao, Data_Inscricao, Metrica_Competicao, Tentativas_Competicao) 
-                                   VALUES ('{0}','{1}','{2}','{3}')""".format(Nome_Competicao, Data_Inscricao, Metrica_Competicao, Tentativas_Competicao))
-                conn.commit()
-                cursor.execute(" SELECT LAST_INSERT_ID() as Id_Competicao ")
-                results = cursor.fetchone()
-                return(jsonify(results))
-            else:
-                return {"code": "906", "name": "Err", "description":"Competição já existe no banco de dados"}
+                if Metrica_Competicao == 's' or Metrica_Competicao == 'm':
+                    cursor.execute(""" INSERT INTO Competicao (Nome_Competicao, Metrica_Competicao, Tentativas_Competicao) 
+                                    VALUES ('{0}','{1}','{2}')""".format(Nome_Competicao, Metrica_Competicao, Tentativas_Competicao))
+                    conn.commit()
+                    cursor.execute(" SELECT LAST_INSERT_ID() as Id_Competicao ")
+                    results = cursor.fetchone()
+                    return(jsonify(results))
+                else: return {"code": "908", "name": "Err", "description":"Métrica da Competição só pode ser s (segundos) ou m (metros)."}
+            else: return {"code": "906", "name": "Err", "description":"Competição já existe no banco de dados."}
 
         if(request.method == 'PUT'):
             Nome_Competicao     = str(request.json['Nome_Competicao'])
@@ -67,8 +73,7 @@ def competicao():
                                     WHERE Id_Competicao = '{1}'""".format(Data_Fim, valid['Id_Competicao']))
                 conn.commit()
                 return(jsonify(valid))
-            else:
-                return {"code": "901", "name": "Err", "description": "Competição não encontrada no banco de dados"}
+            else: return {"code": "901", "name": "Err", "description": "Competição não encontrada no banco de dados."}
 
 @app.route('/atleta', methods = ['GET', 'POST'])
 def atleta():
@@ -86,25 +91,23 @@ def atleta():
         if(request.method == 'POST'):
             Nome_Competicao     = str(request.json['Nome_Competicao'])
             Nome_Atleta         = str(request.json['Nome_Atleta'])
-            Resultado_Atleta    = str(request.json['Resultado_Atleta'])
+            Resultado_Atleta    = float(request.json['Resultado_Atleta'])
             cursor              = conn.cursor(dictionary=True)
             cursor.execute(""" SELECT Id_Competicao, 
-                                      Data_Inscricao, 
+                                      Data_Fim, 
                                       Tentativas_Competicao 
                                  FROM Competicao 
                                 WHERE Nome_Competicao = '{0}'""".format(Nome_Competicao))
             valid_Competicao = cursor.fetchone()
 
             if bool(valid_Competicao):
-                cursor.execute(""" SELECT Id_Competicao 
-                                     FROM Competicao 
-                                    WHERE Data_Inscricao >= NOW() 
-                                      AND Id_Competicao = '{0}'""".format(valid_Competicao['Id_Competicao']))
-                valid_Data      = cursor.fetchone()
-                Data_Inscricao  = int(dt.fromisoformat(str(valid_Competicao['Data_Inscricao'])).strftime('%Y%m%d'))
-                Data_Final      = int(dt.fromisoformat(str(dt.today())).strftime('%Y%m%d'))
 
-                if Data_Inscricao >= Data_Final:
+                Data_Fim    = str("0" if valid_Competicao['Data_Fim'] is None else valid_Competicao['Data_Fim'])
+                if Data_Fim != "0": 
+                    Data_Fim = int(dt.fromisoformat(str(valid_Competicao['Data_Fim'])).strftime('%Y%m%d'))
+                Data_Final  = int(dt.fromisoformat(str(dt.today())).strftime('%Y%m%d'))
+
+                if Data_Fim == "0" or Data_Fim >= Data_Final:
                     cursor.execute(""" SELECT C.Tentativas_Competicao, count(A.id_Atleta) AS Tentativas_Atleta
                                          FROM Competicao C
                                         INNER JOIN Atleta A
@@ -116,8 +119,7 @@ def atleta():
                     Tentativas_Competicao   = int(1 if valid_Tentativas['Tentativas_Competicao'] is None else valid_Tentativas['Tentativas_Competicao'])
                     
                     if bool(valid_Tentativas) and (Tentativas_Atleta < Tentativas_Competicao):
-                        cursor.execute(""" INSERT 
-                                             INTO Atleta (Id_Competicao, Nome_Atleta, Resultado_Atleta) 
+                        cursor.execute(""" INSERT INTO Atleta (Id_Competicao, Nome_Atleta, Resultado_Atleta) 
                                            VALUES ('{0}','{1}','{2}')""".format(valid_Competicao['Id_Competicao'], Nome_Atleta, Resultado_Atleta))
                         conn.commit()
                         cursor.execute(" SELECT LAST_INSERT_ID() AS Id_Atleta ")
@@ -172,19 +174,6 @@ def ranking(Nome_Competicao):
                     return(jsonify(results))
                 else: return {"code": "907", "name": "Err", "description": "Métrica da competição não existe para ranking."}
             else: return {"code": "905", "name": "Err", "description": "Competição não existe no banco de dados."}
-
-@app.route('/api/v1', methods=["GET"])
-def info_view():
-    output = {
-        'info': 'GET /api/v1',
-        'competicao': 'GET /competicao',
-        'competicao inserir': 'POST /competicao',
-        'competicao fim': 'PUT /competicao',
-        'atleta': 'GET /atleta',
-        'atleta': 'POST /atleta',
-        'ranking': 'GET /atleta/<Nome_Competicao>'
-    }
-    return jsonify(output)
 
 @app.errorhandler(HTTPException)
 def exception_handler(error):
