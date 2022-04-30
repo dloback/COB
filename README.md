@@ -247,8 +247,5 @@ Resposta - Status 200 OK
 Exceção
 
 {"code": "907", "name": "Err", "description": "Métrica da competição não existe para ranking."}
-<<<<<<< HEAD
 {"code": "905", "name": "Err", "description": "Competição não existe no banco de dados."}
-=======
 {"code": "905", "name": "Err", "description": "Competição não existe no banco de dados."}
->>>>>>> d05f291331411ac688eb89374468c41ce7ccd71e
